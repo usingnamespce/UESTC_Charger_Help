@@ -16,12 +16,12 @@ git fetch upstream
 
 ## 本地提交
 
-在项目目录修改并验证。使用 `git status` 和 `git diff` 审核改动，只暂存本次需要提交的源码、静态资源或文档。提交说明用一句话概括改动，例如 `新增地点多选筛选`。
+在项目目录修改并验证。使用 `git status` 和 `git diff` 审核改动，只暂存本次需要提交的源码、静态资源或文档。提交说明用 `类型: 简短描述` 格式，例如 `feat: 新增地点多选筛选`、`fix: 修复站点计数` 或 `docs: 更新部署说明`。
 
 ```bash
 git add README.md
 git diff --cached --check
-git commit -m "更新部署说明"
+git commit -m "docs: 更新部署说明"
 # 需要发布时再推送：
 git push origin master
 ```
