@@ -14,6 +14,10 @@
 | `export_locations.py` | 生成 / 刷新 `station_locations.json` |
 | `web/` | 手机网页前端（`index.html` + 本地 Leaflet 地图库） |
 
+## 列表地点分类
+
+在 [`web/station_keywords.txt`](web/station_keywords.txt) 中每行填写一个地点关键词。列表按站点原名包含的关键词归组，匹配时忽略空白以及大小写、全半角差异；多个关键词命中时使用最长的一个，同长度时按配置中的先后顺序。没有命中的站点归入「未分类」，站点原名和地图不受影响。修改配置后刷新网页即可生效。
+
 ## 接口一览
 
 - `GET /api/health` — 健康状态

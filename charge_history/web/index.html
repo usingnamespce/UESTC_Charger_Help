@@ -415,7 +415,7 @@ function setMode(m) {
   } else {
     showView("view-stations", false);
     S.stack = [];
-    loadStations();
+    loadStations().catch(showStationLoadError);
   }
 }
 
@@ -435,18 +435,50 @@ async function checkHealth() {
 
 /* ---------- 站点 ---------- */
 const stationNameOrder = new Intl.Collator("zh-CN-u-co-pinyin", { numeric: true });
-// 只移除已知编号后缀（如 1号电站1号、2－1号充电桩、3-1），不合并地点别名。
-const stationNumberSuffix = /(?:\d+(?:[-－]\d+)?号?(?:充电桩|电站)(?:\d+号)?|\d+[-－]\d+)$/;
+const UNCLASSIFIED_PLACE = "未分类";
+let stationKeywordsRequest;
 
-function stationGroupName(stationName) {
-  const name = stationName.trim();
-  return name.replace(stationNumberSuffix, "").trim() || name;
+function normalizePlaceName(name) {
+  return name.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 }
 
-function groupStations(stations) {
+function parsePlaceKeywords(text) {
+  const keywords = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const label = line.trim();
+    const key = normalizePlaceName(label);
+    if (key && !keywords.has(key)) keywords.set(key, label);
+  }
+  // 重叠时优先匹配更具体的关键词；同长度保留配置文件中的顺序。
+  return [...keywords].sort(([a], [b]) => b.length - a.length);
+}
+
+function matchingPlaceName(stationName, keywords) {
+  const name = normalizePlaceName(stationName);
+  return keywords.find(([key]) => name.includes(key))?.[1];
+}
+
+function loadStationKeywords() {
+  if (!stationKeywordsRequest) {
+    stationKeywordsRequest = fetch("station_keywords.txt").then(async res => {
+      if (!res.ok) throw new Error(`无法读取地点关键词（HTTP ${res.status}）`);
+      const keywords = parsePlaceKeywords(await res.text());
+      if (!keywords.length) throw new Error("地点关键词清单为空");
+      // 用关键词归并浏览器中仍保存着的旧分组名。
+      S.selectedPlaces = new Set([...S.selectedPlaces].map(name => matchingPlaceName(name, keywords) || name));
+      return keywords;
+    }).catch(error => {
+      stationKeywordsRequest = null;
+      throw error;
+    });
+  }
+  return stationKeywordsRequest;
+}
+
+function groupStations(stations, keywords) {
   const groups = new Map();
   for (const station of stations) {
-    const name = stationGroupName(station.station_name);
+    const name = matchingPlaceName(station.station_name, keywords) || UNCLASSIFIED_PLACE;
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push(station);
   }
@@ -503,8 +535,13 @@ function clearPlaces() {
   saveSelectedPlaces();
 }
 
+function showStationLoadError(error) {
+  toast("站点加载失败：" + error.message);
+}
+
 async function loadStations() {
-  const groups = groupStations(await api("/api/stations"));
+  const [stations, keywords] = await Promise.all([api("/api/stations"), loadStationKeywords()]);
+  const groups = groupStations(stations, keywords);
   const namesChanged = groups.length !== S.stationGroups.length ||
     groups.some(([name], i) => name !== S.stationGroups[i][0]);
   S.stationGroups = groups;
@@ -896,7 +933,7 @@ function toggleAuto() {
 (async function boot() {
   const ok = await checkHealth();
   if (!ok) toast("后端不可达，请确认服务已启动");
-  await loadStations();
+  await loadStations().catch(showStationLoadError);
 })();
 </script>
 </body>
