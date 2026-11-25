@@ -236,6 +236,7 @@
         <div class="place-tools">
           <input class="search" id="placeSearch" type="search" placeholder="搜索地点…" aria-label="搜索地点"
             autocomplete="off" oninput="renderPlaceOptions()">
+          <button class="btn" id="selectAllPlacesBtn" type="button" onclick="selectAllPlaces()" disabled>全选</button>
           <button class="btn" id="clearPlacesBtn" type="button" onclick="clearPlaces()" disabled>清空已选</button>
         </div>
         <div class="place-options" id="placeOptions" onchange="setPlaceSelected(event.target.value, event.target.checked)"></div>
@@ -249,7 +250,7 @@
       <button class="fbtn ending" data-f="ending" onclick="setStationFilter('ending')" title="有充电口已充超过 7 小时 45 分钟">即将结束 <b id="cnt-ending"></b></button>
     </div>
     <div class="list station-groups" id="stationList">
-      <div class="empty">请选择要查看的地点</div>
+      <div class="empty">正在加载站点…</div>
     </div>
   </section>
 
@@ -281,7 +282,7 @@
 const PLACES_STORAGE_KEY = "charger-monitor.selected-places";
 const S = {
   stationGroups: [],
-  selectedPlaces: readSelectedPlaces(),
+  selectedPlaces: readSelectedPlaces(), // null 表示选择全部地点，包括后来新增的地点。
   outlets: [],
   sessions: [],
   currentStation: null,
@@ -401,7 +402,9 @@ function loadStationKeywords() {
       const keywords = parsePlaceKeywords(await res.text());
       if (!keywords.length) throw new Error("地点关键词清单为空");
       // 用关键词归并浏览器中仍保存着的旧分组名。
-      S.selectedPlaces = new Set([...S.selectedPlaces].map(name => matchingPlaceName(name, keywords) || name));
+      if (S.selectedPlaces !== null) {
+        S.selectedPlaces = new Set([...S.selectedPlaces].map(name => matchingPlaceName(name, keywords) || name));
+      }
       return keywords;
     }).catch(error => {
       stationKeywordsRequest = null;
@@ -427,10 +430,14 @@ function groupStations(stations, keywords) {
 function readSelectedPlaces() {
   try {
     const saved = JSON.parse(localStorage.getItem(PLACES_STORAGE_KEY));
-    return new Set(Array.isArray(saved) ? saved.filter(name => typeof name === "string") : []);
+    return Array.isArray(saved) ? new Set(saved.filter(name => typeof name === "string")) : null;
   } catch {
-    return new Set();
+    return null;
   }
+}
+
+function isPlaceSelected(name) {
+  return S.selectedPlaces === null || S.selectedPlaces.has(name);
 }
 
 function renderPlaceOptions() {
@@ -438,20 +445,24 @@ function renderPlaceOptions() {
   const names = S.stationGroups.map(([name]) => name).filter(name => name.toLowerCase().includes(q));
   $("placeOptions").innerHTML = names.map(name => `
     <label class="place-option">
-      <input type="checkbox" value="${esc(name)}"${S.selectedPlaces.has(name) ? " checked" : ""}>
+      <input type="checkbox" value="${esc(name)}"${isPlaceSelected(name) ? " checked" : ""}>
       <span>${esc(name)}</span>
     </label>`).join("") || `<p class="place-message">${q ? "没有匹配的地点" : "暂无地点数据"}</p>`;
 }
 
 function updatePlacePicker() {
-  const count = S.stationGroups.filter(([name]) => S.selectedPlaces.has(name)).length;
-  $("placePickerText").textContent = count ? `选择地点（已选 ${count}）` : "选择地点";
-  $("clearPlacesBtn").disabled = S.selectedPlaces.size === 0;
+  const total = S.stationGroups.length;
+  const count = S.stationGroups.filter(([name]) => isPlaceSelected(name)).length;
+  $("placePickerText").textContent = count === 0 ? "选择地点" :
+    count === total ? "选择地点（全部）" : `选择地点（已选 ${count}）`;
+  $("selectAllPlacesBtn").disabled = !total || S.selectedPlaces === null;
+  $("clearPlacesBtn").disabled = !count;
 }
 
 function saveSelectedPlaces() {
   try {
-    localStorage.setItem(PLACES_STORAGE_KEY, JSON.stringify([...S.selectedPlaces]));
+    if (S.selectedPlaces === null) localStorage.removeItem(PLACES_STORAGE_KEY);
+    else localStorage.setItem(PLACES_STORAGE_KEY, JSON.stringify([...S.selectedPlaces]));
   } catch {
     // 浏览器禁用本地存储时，当前页面仍可使用筛选。
   }
@@ -460,18 +471,26 @@ function saveSelectedPlaces() {
 }
 
 function setPlaceSelected(name, checked) {
+  if (S.selectedPlaces === null) S.selectedPlaces = new Set(S.stationGroups.map(([name]) => name));
   if (checked) S.selectedPlaces.add(name);
   else S.selectedPlaces.delete(name);
   saveSelectedPlaces();
 }
 
+function selectAllPlaces() {
+  S.selectedPlaces = null;
+  renderPlaceOptions();
+  saveSelectedPlaces();
+}
+
 function clearPlaces() {
-  S.selectedPlaces.clear();
+  S.selectedPlaces = new Set();
   renderPlaceOptions();
   saveSelectedPlaces();
 }
 
 function showStationLoadError(error) {
+  $("stationList").innerHTML = '<div class="empty">站点加载失败，请刷新重试</div>';
   toast("站点加载失败：" + error.message);
 }
 
@@ -498,7 +517,7 @@ function stationPasses(s, f) {
 
 function applyStationFilter() {
   const q = $("searchInput").value.trim().toLowerCase();
-  const selected = S.stationGroups.filter(([name]) => S.selectedPlaces.has(name));
+  const selected = S.stationGroups.filter(([name]) => isPlaceSelected(name));
   const matches = selected.map(([name, members]) => [name,
     members.filter(station => station.station_name.toLowerCase().includes(q))]);
   const stations = matches.flatMap(([, members]) => members);
@@ -536,7 +555,9 @@ function renderStats(stations) {
 function renderStations(groups, hasSelection) {
   const box = $("stationList");
   if (!groups.length) {
-    box.innerHTML = `<div class="empty">${hasSelection ? "没有匹配的站点" : "请选择要查看的地点"}</div>`;
+    const message = !S.stationGroups.length ? "暂无站点数据" :
+      hasSelection ? "没有匹配的站点" : "请选择要查看的地点";
+    box.innerHTML = `<div class="empty">${message}</div>`;
     return;
   }
   box.innerHTML = groups.map(([name, members]) => `
