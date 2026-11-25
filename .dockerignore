@@ -1,0 +1,11 @@
+# Allowlist: only runtime inputs enter the build context.
+**
+!requirements.txt
+!charge_history/
+!charge_history/charge_history_backend.py
+!charge_history/charger_api.py
+!charge_history/all.json
+!charge_history/web/
+!charge_history/web/index.html
+!charge_history/web/charger-map.jpg
+!charge_history/web/station_keywords.txt

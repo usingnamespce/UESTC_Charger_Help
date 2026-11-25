@@ -14,6 +14,9 @@ charge_history/charge_history.db*
 charge_history/charge_history_demo.db-shm
 charge_history/charge_history_demo.db-wal
 
+# Docker Compose 本地配置
+/.env
+
 # 本地前端配置
 charge_history_ui_config.json
 

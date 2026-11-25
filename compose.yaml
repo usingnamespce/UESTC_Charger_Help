@@ -1,0 +1,32 @@
+name: charger-monitor
+
+services:
+  charger-monitor:
+    image: charger-monitor:${CHARGER_IMAGE_TAG:-local}
+    build: .
+    ports:
+      - "0.0.0.0:8765:8765"
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json, urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8765/api/health', timeout=3))['ok'] is True"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
