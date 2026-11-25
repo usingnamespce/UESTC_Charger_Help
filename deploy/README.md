@@ -54,6 +54,6 @@ sudo systemctl reload caddy
 
 确需启用时，在服务器上编辑该环境文件并重启服务；通过 HTTPS 或服务器本机访问管理接口。`CHARGER_RATE_LIMIT` 和 `CHARGER_RATE_WINDOW` 仅用于管理接口，默认每个来源 IP 在 60 秒内允许 30 次；普通查询不受此限制。
 
-数据库位于 `/opt/charger-monitor/charge_history/charge_history.db`，默认清理 3 天前的采样记录。站点清单是 `charge_history/all.json`，地图坐标来自 `station_locations.json`，手动修正放在 `station_overrides.json`。
+最新状态只保存在内存，重启后等待第一轮新采样；不需要新建数据库或数据卷。升级时不读取或改写旧数据库文件。如有自定义启动参数，移除旧版的 `--db` 和 `--retention-days`。站点清单是 `charge_history/all.json`；网页静态地图是 `charge_history/web/charger-map.jpg`。
 
 更新步骤见 [Git 提交与发布流程](../GIT_WORKFLOW.md#更新服务器)。

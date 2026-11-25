@@ -45,7 +45,7 @@ if [ ! -f /etc/charger-monitor.env ]; then
 #CHARGER_AUTH_PASS=
 
 # （可选）管理接口(/api/admin/*)按 IP 限流：每 IP 每 60 秒允许请求数，默认 30；设为 0 表示不限。
-#   普通查询接口不鉴权、也不限流(本地 SQLite 很便宜，且避免误伤校园共享出口 IP)。
+#   普通查询接口不鉴权、也不限流（仅查询内存中的采样快照）。
 #CHARGER_RATE_LIMIT=30
 #CHARGER_RATE_WINDOW=60
 EOF

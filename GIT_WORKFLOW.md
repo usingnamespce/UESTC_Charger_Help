@@ -40,4 +40,4 @@ curl -fsS http://127.0.0.1:8765/api/health
 systemctl status charger-monitor --no-pager
 ```
 
-部署脚本同步代码并重启服务，保留已有的数据库和 `/etc/charger-monitor.env`。
+部署脚本同步代码并重启服务，保留 `/etc/charger-monitor.env` 和旧版数据库文件。当前服务不读取旧数据库，重启后需等待采样。
