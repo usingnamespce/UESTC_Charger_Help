@@ -256,7 +256,6 @@
   <!-- 插座列表 -->
   <section id="view-outlets" style="display:none">
     <div class="seg" id="outletTitle"></div>
-    <div class="stats" id="outletStats"></div>
     <div class="outlet-grid" id="outletGrid"></div>
   </section>
 
@@ -576,14 +575,6 @@ async function loadOutlets() {
   try {
     const list = await api("/api/outlets?station_id=" + s.id);
     S.outlets = list;
-    let free = 0, busy = 0, broken = 0;
-    list.forEach(o => {
-      if (o.status === 1) free++; else if (o.status === 2) busy++; else broken++;
-    });
-    $("outletStats").innerHTML = `
-      <div class="stat free"><div class="n">${free}</div><div class="l">空闲</div></div>
-      <div class="stat busy"><div class="n">${busy}</div><div class="l">充电中</div></div>
-      <div class="stat broken"><div class="n">${broken}</div><div class="l">故障</div></div>`;
     $("outletGrid").innerHTML = list.map(o => {
       const cls = CLS_OUTLET[o.status] || "broken";
       let meta = "";
