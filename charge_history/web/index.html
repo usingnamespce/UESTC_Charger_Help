@@ -186,7 +186,6 @@
   .fbtn.on { background: var(--blue); color: #fff; border-color: transparent; font-weight: 700;
     box-shadow: 0 2px 8px rgba(10,132,255,.4); }
   .fbtn.free.on { background: var(--green); color: #043; box-shadow: 0 2px 8px rgba(48,209,88,.35); }
-  .fbtn.busy.on { background: var(--yellow); color: #432; box-shadow: 0 2px 8px rgba(255,214,10,.35); }
 
   /* 卡片三个状态胶囊 */
   .card .card-top { display: flex; align-items: center; gap: 8px; }
@@ -244,9 +243,8 @@
     <div class="stats" id="statsBar"></div>
     <div class="updated" id="updatedAt"></div>
     <div class="filter" id="stationFilter">
-      <button class="fbtn on" data-f="all" onclick="setStationFilter('all')">全部 <b id="cnt-all"></b></button>
-      <button class="fbtn free" data-f="free" onclick="setStationFilter('free')">空闲 <b id="cnt-free"></b></button>
-      <button class="fbtn busy" data-f="busy" onclick="setStationFilter('busy')">充电中 <b id="cnt-busy"></b></button>
+      <button class="fbtn" data-f="all" onclick="setStationFilter('all')">全部 <b id="cnt-all"></b></button>
+      <button class="fbtn free on" data-f="free" onclick="setStationFilter('free')">空闲 <b id="cnt-free"></b></button>
     </div>
     <div class="list station-groups" id="stationList">
       <div class="empty">请选择要查看的地点</div>
@@ -287,7 +285,7 @@ const S = {
   currentStation: null,
   currentOutlet: null,
   currentSession: null,
-  stationFilter: "all",
+  stationFilter: "free",
   stack: [],
   auto: false,
   timer: null,
@@ -492,7 +490,6 @@ function stationPasses(s, f) {
   const total = s.outlet_count || 0;
   const free = Math.max(0, total - (s.busy_count||0) - (s.broken_count||0));
   if (f === "free") return free > 0;          // 该站还有空闲插座
-  if (f === "busy") return (s.busy_count||0) > 0;  // 该站有在充电的
   return true;
 }
 
@@ -504,7 +501,6 @@ function applyStationFilter() {
   const stations = matches.flatMap(([, members]) => members);
   $("cnt-all").textContent = stations.length;
   $("cnt-free").textContent = stations.filter(s => stationPasses(s, "free")).length;
-  $("cnt-busy").textContent = stations.filter(s => stationPasses(s, "busy")).length;
   renderStats(stations);
 
   const shown = matches.map(([name, members]) => [name,
@@ -558,7 +554,7 @@ function renderStationCard(s) {
       </div>
       <div class="pills">
         <span class="pill f ${f==="free"?"hl":""}">空闲 ${free}</span>
-        <span class="pill b ${f==="busy"?"hl":""}">充电中 ${busy}</span>
+        <span class="pill b">充电中 ${busy}</span>
         <span class="pill k ${broken?"hl":""}">故障 ${broken}</span>
       </div>
     </div>`;
