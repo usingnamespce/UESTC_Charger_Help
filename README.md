@@ -1,6 +1,8 @@
 # 电子科技大学充电桩位置查询
 
-查学校（清水河校区）充电桩的**空闲情况、位置、历史**。数据来自「闪开来电」，每 60 秒自动更新。
+查询电子科技大学清水河校区充电桩的**空闲情况、位置和充电历史**。数据来自「闪开来电」。
+
+**项目来源：** 本项目基于 [ganhaidong/UESTC_Charger_Monitor 的 `master` 分支](https://github.com/ganhaidong/UESTC_Charger_Monitor/tree/master) 二次开发。在其网页、地图和采样功能的基础上，本项目新增了按地点归组、地点多选筛选和记住已选地点。
 
 ## 一、给普通用户：怎么用（手机 / 电脑浏览器）
 
@@ -8,31 +10,46 @@
 
 - **列表**：先点 **选择地点**，搜索或勾选一个或多个地点；只显示所选地点的站点，首次打开不默认选择，浏览器会记住选择。可在已选地点内搜索站点，或点 **［全部 / 空闲 / 充电中］** 筛选。点站点查看插座，再点插座看近 3 天的充电记录与功率曲线。
 - **地图**：看每个站的位置。🟢 绿 = 有空闲（数字 = 该位置空闲插座数），🔴 红 = 无空闲，⚪ 灰 = 无数据。点标记可查看该位置的几个站、并直接进入插座。
-- 数据每 60 秒自动刷新；右上「自动刷新」可开关，点「刷新」立即更新。
+- 后端每轮采样完成后默认等待 60 秒再开始下一轮。网页右上角的「自动刷新」单独控制页面刷新，也可以点「刷新」手动读取已采集的数据。
 
-## 二、怎么部署
+## 二、本地运行与部署
 
-### 2.1 本地跑一下（需要 Python 3 + `requests`）
-```bash
-pip install requests
-# 首次 / 加站后生成站点点位
-python charge_history/export_locations.py
-# 启动（--host 0.0.0.0 供局域网内手机访问）
-python charge_history/charge_history_backend.py --host 0.0.0.0
+### 2.1 本机运行
+
+安装 Python 3，在项目根目录执行。Windows PowerShell：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe charge_history\charge_history_backend.py
 ```
-- 本机：`http://127.0.0.1:8765/`；同 Wi-Fi 的手机：`http://<电脑IP>:8765/`
-- 也可双击 `start_server.command`（macOS）或 `start_server.bat`（Windows）一键启动。
 
-### 2.2 部署到云服务器（供大家用，推荐）
-- 一台**国内**云服务器（腾讯云 / 阿里云，Ubuntu 系统），放行端口 **8765**。
-- 把代码放到服务器后执行：`sudo bash deploy/deploy.sh`（自动装依赖、建 systemd 服务、开机自启、崩溃自动重启）。
-- 手机打开 `http://<服务器IP>:8765/`。
+macOS / Linux：
 
-> 详细步骤见 `deploy/README.md`。
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python charge_history/charge_history_backend.py
+```
+
+默认只监听本机，浏览器打开 `http://127.0.0.1:8765/`；可访问 `/api/health` 检查服务。首次启动后等待第一轮采样完成再查看站点。仓库已带站点坐标表，只有需要更新坐标时才运行 `charge_history/export_locations.py`。
+
+### 2.2 局域网访问与常用参数
+
+- 让同一局域网的设备访问时，在启动命令末尾加 `--host <本机局域网IPv4>`，用实际地址替换占位符；在防火墙上仅允许可信网段入站访问 TCP `8765`，然后从其他设备打开 `http://<本机局域网IPv4>:8765/`。
+- `start_server.bat`（Windows）和 `start_server.command`（macOS）会监听所有 IPv4 网卡（`0.0.0.0`）；仅在需要共享且已设置防火墙时使用。
+- `--port` 可改端口；`--sample-interval` 可调整轮次之间的等待秒数；`--no-collector` 只启动网页和查询接口，不请求实时数据。
+
+### 2.3 云端部署
+
+Ubuntu / Debian 上可运行 `sudo bash deploy/deploy.sh`，由 systemd 托管。公网部署、反向代理和管理接口配置见 [云端部署指南](deploy/README.md)。
 
 ## 三、致谢
-- 数据来自「闪开来电」(issks) 充电平台接口。
-- 原始工具由 [WGooold](https://github.com/WGooold/UESTC_Charger_Monitor) 开发，本仓库在其基础上扩展了**网页前端、地图定位、坐标标定与云端部署**。
+
+- 直接上游：[ganhaidong/UESTC_Charger_Monitor](https://github.com/ganhaidong/UESTC_Charger_Monitor/tree/master)。
+- 原始工具：[WGooold/UESTC_Charger_Monitor](https://github.com/WGooold/UESTC_Charger_Monitor)。
+- 数据接口由「闪开来电」（issks）充电平台提供。
+
 ## 四、未来优化
 - 要是每个充电桩位置都有实景拍照就好了，这样上传后就能直接看充电桩位置的图片，而不是地图上的标记。（实地拍照可能需要大家共同的努力）
 - 欢迎大家提意见和建议，或贡献代码。

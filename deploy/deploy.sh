@@ -39,9 +39,10 @@ sudo chown -R "$RUN_USER:$RUN_USER" "$APP_DIR"
 if [ ! -f /etc/charger-monitor.env ]; then
   sudo tee /etc/charger-monitor.env >/dev/null <<'EOF'
 # 管理口令：仅作用于 /api/admin/*（如 /api/admin/collect 手动采集）。
-#   查询接口/网页/地图 永远免费开放、无需登录。把下面两行改成你自己的后重启服务生效。
-CHARGER_AUTH_USER=admin
-CHARGER_AUTH_PASS=change_me
+#   查询接口/网页/地图无需登录；管理接口默认关闭。
+#   如需启用，填写自己的账号和强密码，取消两行注释后重启服务。
+#CHARGER_AUTH_USER=
+#CHARGER_AUTH_PASS=
 
 # （可选）管理接口(/api/admin/*)按 IP 限流：每 IP 每 60 秒允许请求数，默认 30；设为 0 表示不限。
 #   普通查询接口不鉴权、也不限流(本地 SQLite 很便宜，且避免误伤校园共享出口 IP)。
