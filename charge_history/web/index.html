@@ -588,8 +588,8 @@ async function loadOutlets() {
       const cls = CLS_OUTLET[o.status] || "broken";
       let meta = "";
       if (o.status === 2) {
-        meta = `<div class="meta">${fmtPower(o.current_power_w)}</div>
-                <div class="meta">${fmtMoney(o.current_fee)}</div>`;
+        const minutes = (Date.parse(o.last_seen_at) - Date.parse(o.current_session_start)) / 60000;
+        meta = `<div class="meta">${Number.isFinite(minutes) && minutes >= 0 ? "已充 " + fmtDur(minutes) : "时长未知"}</div>`;
       } else if (o.status === 1) {
         meta = `<div class="meta">可用</div>`;
       }
