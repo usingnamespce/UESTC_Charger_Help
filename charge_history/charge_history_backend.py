@@ -68,6 +68,7 @@ DEFAULT_PORT = 8765
 DEFAULT_SAMPLE_INTERVAL_S = 60
 DEFAULT_RETENTION_DAYS = 3
 DEFAULT_STATION_WORKERS = 8
+ENDING_SOON_MINUTES = 7 * 60 + 45
 UTC = dt.timezone.utc
 
 
@@ -728,7 +729,11 @@ class HistoryDatabase:
                     s.last_seen_at,
                     COALESCE(SUM(CASE WHEN o.last_status = 2 THEN 1 ELSE 0 END), 0) AS busy_count,
                     COALESCE(SUM(CASE WHEN o.last_status = 3 THEN 1 ELSE 0 END), 0) AS broken_count,
-                    COALESCE(SUM(CASE WHEN cs.id IS NOT NULL THEN 1 ELSE 0 END), 0) AS in_progress_count
+                    COALESCE(SUM(CASE WHEN cs.id IS NOT NULL THEN 1 ELSE 0 END), 0) AS in_progress_count,
+                    COUNT(CASE WHEN o.last_status = ? AND
+                        strftime('%Y-%m-%dT%H:%M:%f', o.last_seen_at) >
+                        strftime('%Y-%m-%dT%H:%M:%f', cs.start_time, ?)
+                        THEN 1 END) AS ending_soon_count
                 FROM station_registry s
                 LEFT JOIN outlet_registry o
                     ON o.station_id = s.station_id
@@ -738,7 +743,7 @@ class HistoryDatabase:
                 GROUP BY s.station_id, s.station_name, s.outlet_count, s.last_seen_at
                 ORDER BY s.station_name
                 """,
-                (like_kw,),
+                (STATUS_BUSY, f"+{ENDING_SOON_MINUTES} minutes", like_kw),
             ).fetchall()
         finally:
             conn.close()

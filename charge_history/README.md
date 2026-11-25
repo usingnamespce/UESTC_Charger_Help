@@ -21,7 +21,7 @@
 ## 接口一览
 
 - `GET /api/health` — 健康状态
-- `GET /api/stations` — 站点列表（空闲/充电中/故障汇总）
+- `GET /api/stations` — 站点列表（空闲/充电中/故障汇总；`ending_soon_count` 为最近一次采样时仍在充电、且已充超过 7 小时 45 分钟的充电口数）
 - `GET /api/outlets?station_id=` — 某站插座
 - `GET /api/sessions?station_id=&outlet_no=` — 某插座历史
 - `GET /api/session?session_id=` — 会话详情
