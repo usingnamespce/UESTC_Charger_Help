@@ -161,7 +161,6 @@
   .fbtn.on { background: var(--blue); color: #fff; border-color: transparent; font-weight: 700;
     box-shadow: 0 2px 8px rgba(10,132,255,.4); }
   .fbtn.free.on { background: var(--green); color: #043; box-shadow: 0 2px 8px rgba(48,209,88,.35); }
-  .fbtn.ending.on { background: var(--yellow); color: #432; }
 
   /* 卡片三个状态胶囊 */
   .card .card-top { display: flex; align-items: center; gap: 8px; }
@@ -229,7 +228,6 @@
     <div class="filter" id="stationFilter">
       <button class="fbtn" data-f="all" onclick="setStationFilter('all')">全部 <b id="cnt-all"></b></button>
       <button class="fbtn free on" data-f="free" onclick="setStationFilter('free')">空闲 <b id="cnt-free"></b></button>
-      <button class="fbtn ending" data-f="ending" onclick="setStationFilter('ending')" title="有充电口已充超过 7 小时 45 分钟">即将结束 <b id="cnt-ending"></b></button>
     </div>
     <div class="list station-groups" id="stationList">
       <div class="empty">正在加载站点…</div>
@@ -506,8 +504,7 @@ function scheduleInitialRefresh(stations) {
 
 function stationPasses(s, filter) {
   if (filter === "all") return true;
-  if (s.sample_status !== "ready") return false;
-  return filter === "ending" ? s.ending_soon_count > 0 : s.free_count > 0;
+  return s.sample_status === "ready" && s.free_count > 0;
 }
 
 function applyStationFilter() {
@@ -519,7 +516,6 @@ function applyStationFilter() {
   const ready = stations.filter(s => s.sample_status === "ready");
   $("cnt-all").textContent = stations.length;
   $("cnt-free").textContent = ready.length ? ready.filter(s => stationPasses(s, "free")).length : "–";
-  $("cnt-ending").textContent = ready.length ? ready.filter(s => stationPasses(s, "ending")).length : "–";
   renderStats(ready);
   renderSampleStatus(stations, ready);
 

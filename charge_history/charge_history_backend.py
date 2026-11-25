@@ -45,7 +45,6 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_SAMPLE_INTERVAL_S = 60
 DEFAULT_STATION_WORKERS = 8
-ENDING_SOON_MINUTES = 7 * 60 + 45
 UTC = dt.timezone.utc
 
 
@@ -88,7 +87,6 @@ class StationSnapshot:
     free_count: int
     busy_count: int
     broken_count: int
-    ending_soon_count: int
 
     @classmethod
     def from_outlets(cls, sampled_at: str, outlets: List[Dict[str, Any]]) -> StationSnapshot:
@@ -103,8 +101,6 @@ class StationSnapshot:
             free_count=sum(o.status == STATUS_FREE for o in ordered),
             busy_count=sum(o.status == STATUS_BUSY for o in ordered),
             broken_count=sum(o.status == STATUS_BROKEN for o in ordered),
-            ending_soon_count=sum(o.status == STATUS_BUSY and o.used_min is not None and
-                                  o.used_min > ENDING_SOON_MINUTES for o in ordered),
         )
 
 
@@ -152,11 +148,10 @@ class SnapshotStore:
                     free_count=snapshot.free_count,
                     busy_count=snapshot.busy_count,
                     broken_count=snapshot.broken_count,
-                    ending_soon_count=snapshot.ending_soon_count,
                 )
             else:
                 row.update(outlet_count=None, free_count=None, busy_count=None,
-                           broken_count=None, ending_soon_count=None)
+                           broken_count=None)
             rows.append(row)
         return rows
 

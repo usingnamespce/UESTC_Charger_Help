@@ -31,15 +31,17 @@ class SnapshotStoreTest(unittest.TestCase):
         self.assertEqual(self.store.list_outlets(1)["outlets"], [])
         self.assertIsNone(self.store.list_outlets(99))
 
-    def test_counts_only_busy_outlets_strictly_over_threshold(self):
+    def test_counts_outlets_by_status(self):
         self.store.publish({
-            1: StationSnapshot.from_outlets(STAMP, ports((STATUS_BUSY, 464), (STATUS_BUSY, 465))),
-            2: StationSnapshot.from_outlets(STAMP, ports((STATUS_BUSY, 466), (STATUS_BUSY, 480),
-                                          (STATUS_BUSY, None), (STATUS_FREE, None), (STATUS_BROKEN, 500))),
+            1: StationSnapshot.from_outlets(STAMP, ports((STATUS_BUSY, 30))),
+            2: StationSnapshot.from_outlets(STAMP, ports(
+                (STATUS_BUSY, 60), (STATUS_BUSY, None), (STATUS_FREE, None), (STATUS_BROKEN, None),
+            )),
             3: StationSnapshot.from_outlets(STAMP, []),
         }, set())
         rows = self.store.list_stations()
-        self.assertEqual([row["ending_soon_count"] for row in rows], [0, 2, 0])
+        self.assertEqual([row["busy_count"] for row in rows], [1, 2, 0])
+        self.assertEqual([row["broken_count"] for row in rows], [0, 1, 0])
         self.assertEqual([row["free_count"] for row in rows], [0, 1, 0])
         self.assertEqual(rows[2]["sample_status"], "ready")
         self.assertEqual(rows[2]["outlet_count"], 0)
@@ -55,13 +57,13 @@ class SnapshotStoreTest(unittest.TestCase):
         self.assertEqual(self.store.list_outlets(1)["outlets"], [])
         self.assertEqual(self.store.totals()["ready_station_count"], 0)
 
-        updated = StationSnapshot.from_outlets("2026-01-01T08:01:00.000+00:00", ports((STATUS_BUSY, 466)))
+        updated = StationSnapshot.from_outlets("2026-01-01T08:01:00.000+00:00", ports((STATUS_BUSY, 75)))
         self.store.publish({1: updated}, {2, 3})
         row = self.store.list_outlets(1)
         self.assertEqual(row["sample_status"], "ready")
         self.assertEqual(row["last_seen_at"], updated.sampled_at)
-        self.assertEqual(row["outlets"], ports((STATUS_BUSY, 466)))
-        self.assertEqual(self.store.list_stations()[0]["ending_soon_count"], 1)
+        self.assertEqual(row["outlets"], ports((STATUS_BUSY, 75)))
+        self.assertEqual(self.store.list_stations()[0]["busy_count"], 1)
 
     def test_collector_distinguishes_empty_station_and_upstream_failure(self):
         station_map = {"Campus A": 1, "Campus B": 2}
@@ -84,14 +86,14 @@ class UpstreamSnapshotTest(unittest.TestCase):
         self.assertIsNone(fetch_outlet_duration("sample"))
         self.assertEqual(fetch_outlet_duration("sample"), 0)
 
-    @patch("charger_api.fetch_outlet_duration", return_value=466)
+    @patch("charger_api.fetch_outlet_duration", return_value=75)
     @patch("charger_api.requests.get")
     def test_only_requests_duration_for_busy_outlets(self, request, duration):
         request.return_value = Mock(status_code=200, **{"json.return_value": {"code": 1, "data": [
             {"outletSerialNo": "1", "outletNo": "free", "currentChargingRecordId": 1},
             {"outletSerialNo": "2", "outletNo": "busy", "currentChargingRecordId": 2},
         ]}})
-        self.assertEqual(fetch_station(5), ports((STATUS_FREE, None), (STATUS_BUSY, 466)))
+        self.assertEqual(fetch_station(5), ports((STATUS_FREE, None), (STATUS_BUSY, 75)))
         duration.assert_called_once_with("busy")
 
 

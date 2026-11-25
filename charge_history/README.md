@@ -23,7 +23,7 @@
 每轮结束后一起发布数据。浏览器只读内存，不会触发上游请求。未首次采样、采样失败，以及上游确认没有充电口是不同状态。某站采样失败时，保留上次成功时间，不把旧状态用于可用性筛选。重启后从空快照开始，不读写旧版 SQLite 文件。
 
 - `GET /api/health` — 服务状态；在 `data.collector.last_summary` 查看最近一轮采样结果
-- `GET /api/stations` — 采样清单中的站点、`sample_status`、`last_seen_at` 和充电口计数。只有状态为 `ready` 时有计数；`ending_soon_count` 统计仍在充电且已充超过 465 分钟的充电口。
+- `GET /api/stations` — 采样清单中的站点、`sample_status`、`last_seen_at` 和充电口计数。只有状态为 `ready` 时有计数。
 - `GET /api/outlets?station_id=<ID>` — 当前站点的状态和 `outlets`；充电口只有编号、状态和 `used_min`（已充分钟数，不明时为 `null`）。站点状态非 `ready` 时 `outlets` 为空。
 - `GET /api/admin/collect` — 手动触发一次采样（需管理口令）
 
