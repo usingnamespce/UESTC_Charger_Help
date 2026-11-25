@@ -9,14 +9,14 @@
 | `charge_history_backend.py` | 后端主程序：每 60 秒采样所有站 → 写入 SQLite 历史库，并提供 HTTP 接口、托管网页 |
 | `charger_api.py` | 调「闪开来电」(issks) 接口取站点/插座数据 |
 | `all.json` | 站点清单（`站点名 -> station_id`） |
-| `station_locations.json` | 各站经纬度 + 地址（用于地图定位） |
+| `station_locations.json` | 各站经纬度和地址（由 `/api/locations` 提供，网页不再显示地图） |
 | `station_overrides.json` | 手动坐标校正（可选；源数据个别站坐标错时用） |
 | `export_locations.py` | 生成 / 刷新 `station_locations.json` |
-| `web/` | 手机网页前端（`index.html` + 本地 Leaflet 地图库） |
+| `web/` | 手机网页前端（站点列表、插座和充电历史） |
 
 ## 列表地点分类
 
-在 [`web/station_keywords.txt`](web/station_keywords.txt) 中每行填写一个地点关键词。列表按站点原名包含的关键词归组，匹配时忽略空白以及大小写、全半角差异；多个关键词命中时使用最长的一个，同长度时按配置中的先后顺序。没有命中的站点归入「未分类」，站点原名和地图不受影响。修改配置后刷新网页即可生效。
+在 [`web/station_keywords.txt`](web/station_keywords.txt) 中每行填写一个地点关键词。列表按站点原名包含的关键词归组，匹配时忽略空白以及大小写、全半角差异；多个关键词命中时使用最长的一个，同长度时按配置中的先后顺序。没有命中的站点归入「未分类」，不会修改站点原名。修改配置后刷新网页即可生效。
 
 ## 接口一览
 

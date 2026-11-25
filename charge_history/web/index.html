@@ -6,8 +6,7 @@
 <meta name="theme-color" content="#12161c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>电子科技大学充电桩位置查询</title>
-<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<title>电子科技大学充电桩查询</title>
 <style>
   :root {
     --bg-top: #070a0e;
@@ -152,13 +151,6 @@
   }
   .toast.show { opacity: 1; }
 
-  /* 列表/地图 分段切换 */
-  .seg { display: flex; gap: 2px; background: var(--card-hi); border: 1px solid var(--border);
-    border-radius: 10px; padding: 2px; flex: 0 0 auto; }
-  .seg-btn { border: 0; background: transparent; color: var(--muted); font-size: 13px;
-    padding: 6px 12px; border-radius: 8px; cursor: pointer; }
-  .seg-btn.on { background: var(--blue); color: #fff; font-weight: 600; }
-
   /* 地点筛选 */
   .place-picker { margin: 8px 0; }
   .place-picker > summary {
@@ -218,17 +210,6 @@
 
   /* 页脚提示 */
   .updated { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
-
-  /* 地图 */
-  #view-map { position: relative; }
-  .map-note { font-size: 12px; color: var(--muted); margin: 8px 0 6px; display: flex; flex-wrap: wrap;
-    gap: 10px 14px; align-items: center; }
-  .lg { display: inline-flex; align-items: center; gap: 5px; }
-  .lg .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin: 0; }
-  #mapDiv { height: calc(100vh - 250px); min-height: 300px; border-radius: var(--radius);
-    border: 1px solid var(--border); overflow: hidden; background: #0b0e13; }
-  #mapDiv .leaflet-popup-content { color: #111; }
-  #mapDiv .leaflet-popup-content-wrapper { border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -236,16 +217,12 @@
   <header>
     <div class="top">
       <button class="back" id="backBtn" onclick="goBack()">‹</button>
-      <h1><span class="dot" id="healthDot"></span>电子科技大学充电桩位置查询</h1>
-      <div class="seg">
-        <button class="seg-btn on" id="listTab" onclick="setMode('list')">列表</button>
-        <button class="seg-btn" id="mapTab" onclick="setMode('map')">地图</button>
-      </div>
+      <h1><span class="dot" id="healthDot"></span>电子科技大学充电桩查询</h1>
       <button class="btn refresh" id="refreshBtn" onclick="refresh()">
         <svg class="ri" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>刷新
       </button>
     </div>
-    <div class="toolbar" id="listToolbar">
+    <div class="toolbar">
       <input class="search" id="searchInput" placeholder="搜索站点…" aria-label="搜索已选地点的站点" oninput="applyStationFilter()">
       <button class="switch" id="autoBtn" onclick="toggleAuto()">自动刷新</button>
     </div>
@@ -294,17 +271,10 @@
     <div class="detail" id="detailBody"></div>
   </section>
 
-  <!-- 地图 -->
-  <section id="view-map" style="display:none">
-    <div class="map-note" id="mapNote">正在加载地图…</div>
-    <div id="mapDiv"></div>
-  </section>
-
   <div class="empty" id="emptyHint" style="display:none">暂无数据</div>
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="vendor/leaflet/leaflet.js"></script>
 <script>
 "use strict";
 
@@ -318,29 +288,12 @@ const S = {
   currentStation: null,
   currentOutlet: null,
   currentSession: null,
-  locationById: {},
   stationFilter: "all",
   stack: [],
   auto: false,
   timer: null,
   health: null,
 };
-
-/* ---------- 地图配置 ---------- */
-const MAP = {
-  center: [30.746, 103.922],   // 校园中心（标记加载后会自动 fitBounds）
-  zoom: 16,
-  // 高德中文路网瓦片：GCJ-02 原生，接口坐标也是 GCJ-02，直接使用、无需转换。
-  // 若需回退 OpenStreetMap：tileUrl 改 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"，
-  //   subdomains: ["a","b","c"]，gcjToWgs: true（OSM 是 WGS-84，此时要转换）。
-  tileUrl: "https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",
-  subdomains: ["1", "2", "3", "4"],
-  attribution: "© 高德地图",
-  gcjToWgs: false,
-};
-let MODE = "list";
-let leafletMap = null;
-let markers = {};
 
 const $ = id => document.getElementById(id);
 const STATUS_OUTLET = {1:"空闲", 2:"充电中", 3:"故障"};
@@ -381,7 +334,7 @@ function fmtDur(v) {
 function fmtPower(v) { return v == null ? "-" : v + " W"; }
 
 /* ---------- 视图切换 ---------- */
-const VIEWS = ["view-stations", "view-outlets", "view-sessions", "view-detail", "view-map"];
+const VIEWS = ["view-stations", "view-outlets", "view-sessions", "view-detail"];
 function showView(name, push) {
   VIEWS.forEach(v => $(v).style.display = v === name ? "block" : "none");
   $("searchInput").style.display = name === "view-stations" ? "block" : "none";
@@ -401,22 +354,6 @@ function nav(view, pushFn) {
 }
 function currentView() {
   return VIEWS.find(v => $(v).style.display !== "none") || "view-stations";
-}
-
-function setMode(m) {
-  MODE = m;
-  $("listTab").classList.toggle("on", m === "list");
-  $("mapTab").classList.toggle("on", m === "map");
-  $("listToolbar").style.display = m === "list" ? "flex" : "none";
-  if (m === "map") {
-    showView("view-map", false);
-    loadMap();
-    setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 60);
-  } else {
-    showView("view-stations", false);
-    S.stack = [];
-    loadStations().catch(showStationLoadError);
-  }
 }
 
 /* ---------- 健康检查 ---------- */
@@ -766,140 +703,6 @@ function powerChart(points) {
     </svg>`;
 }
 
-/* ---------- 地图 ---------- */
-const PI2 = Math.PI;
-function _outOfChina(lng, lat) {
-  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
-}
-function _transLat(x, y) {
-  let r = -100 + 2*x + 3*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
-  r += (20*Math.sin(6*x*PI2) + 20*Math.sin(2*x*PI2)) * 2/3;
-  r += (20*Math.sin(y*PI2) + 40*Math.sin(y/3*PI2)) * 2/3;
-  r += (160*Math.sin(y/12*PI2) + 320*Math.sin(y*PI2/30)) * 2/3;
-  return r;
-}
-function _transLng(x, y) {
-  let r = 300 + x + 2*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
-  r += (20*Math.sin(6*x*PI2) + 20*Math.sin(2*x*PI2)) * 2/3;
-  r += (20*Math.sin(x*PI2) + 40*Math.sin(x/3*PI2)) * 2/3;
-  r += (150*Math.sin(x/12*PI2) + 300*Math.sin(x/30*PI2)) * 2/3;
-  return r;
-}
-function _gcjDelta(lng, lat) {
-  const a = 6378245.0, ee = 0.00669342162296594323;
-  let dLat = _transLat(lng-105, lat-35);
-  let dLng = _transLng(lng-105, lat-35);
-  const radLat = lat/180*PI2;
-  let magic = Math.sin(radLat);
-  magic = 1 - ee*magic*magic;
-  const sqrtMagic = Math.sqrt(magic);
-  dLat = (dLat*180)/((a*(1-ee))/(magic*sqrtMagic)*PI2);
-  dLng = (dLng*180)/(a/sqrtMagic*Math.cos(radLat)*PI2);
-  return [dLng, dLat];
-}
-function gcj02ToWgs84(lng, lat) {
-  if (_outOfChina(lng, lat)) return [lng, lat];
-  let d = _gcjDelta(lng, lat);
-  let wl = lng - d[0], wla = lat - d[1];
-  let d2 = _gcjDelta(wl, wla);
-  return [lng - d2[0], lat - d2[1]];
-}
-
-function buildMap() {
-  if (leafletMap) return;
-  leafletMap = L.map("mapDiv", { zoomControl: true }).setView(MAP.center, MAP.zoom);
-  L.tileLayer(MAP.tileUrl, {
-    attribution: MAP.attribution,
-    maxZoom: 18,
-    subdomains: MAP.subdomains,
-  }).addTo(leafletMap);
-}
-
-function freeOfStation(s) {
-  if (!s) return null;
-  return Math.max(0, (s.outlet_count||0) - (s.busy_count||0) - (s.broken_count||0));
-}
-
-function cGroupMarker(freeCount, hasData) {
-  // freeCount: 该位置“空闲插座总数”；null=无数据
-  const color = !hasData ? "#8999ac" : (freeCount > 0 ? "#30d158" : "#ff453a");
-  const fg = !hasData ? "#333" : (freeCount > 0 ? "#043" : "#fff");
-  return `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:${fg};font-weight:700;font-size:13px;box-shadow:0 1px 5px rgba(0,0,0,.55)">${freeCount == null ? "·" : freeCount}</div>`;
-}
-
-function popupGroup(g, status) {
-  let html = `<div style="max-width:240px;max-height:300px;overflow:auto">
-    <div style="font-weight:700;font-size:14px;margin-bottom:4px">${g.items.length} 个站点（同一位置）</div>`;
-  g.items.forEach(loc => {
-    const s = status[loc.station_id];
-    const f = freeOfStation(s);
-    const freeText = s ? `${f} 空闲 · ${s.busy_count||0} 充电中 · ${s.broken_count||0} 故障` : "无实时数据";
-    html += `<div style="border-top:1px solid #eee;padding:6px 0">
-      <div style="font-size:13px;font-weight:600">${esc(loc.station_name)}</div>
-      <div style="font-size:12px;color:#666">${freeText}</div>
-      <button class="btn" style="width:100%;margin-top:4px" onclick="gotoStationFromMap(${loc.station_id})">查看插座</button>
-    </div>`;
-  });
-  html += `</div>`;
-  return html;
-}
-
-async function loadMap() {
-  try {
-    const locs = await api("/api/locations");
-    const stations = await api("/api/stations");
-    buildMap();
-    const status = {};
-    stations.forEach(s => status[s.station_id] = s);
-    S.locationById = {};
-    Object.values(markers).forEach(md => leafletMap.removeLayer(md));
-    markers = {};
-    let placed = 0;
-    const locIds = new Set();
-    // 按近似坐标合并同址站点（接口给的坐标是楼栋级，同楼不同站会重合）
-    const groups = {};
-    locs.forEach(loc => {
-      if (loc.latitude == null || loc.longitude == null) return;
-      let lng = loc.longitude, lat = loc.latitude;
-      if (MAP.gcjToWgs) { const w = gcj02ToWgs84(lng, lat); lng = w[0]; lat = w[1]; }
-      const key = lat.toFixed(5) + "," + lng.toFixed(5);
-      if (!groups[key]) groups[key] = { lat, lng, items: [] };
-      groups[key].items.push(loc);
-      S.locationById[loc.station_id] = loc;
-      locIds.add(loc.station_id);
-    });
-    Object.entries(groups).forEach(([key, g]) => {
-      let hasData = false, freeSum = 0;
-      g.items.forEach(loc => { const f = freeOfStation(status[loc.station_id]); if (f != null) { hasData = true; freeSum += f; } });
-      const icon = L.divIcon({ className: "", html: cGroupMarker(hasData ? freeSum : null, hasData), iconSize: [30,30], iconAnchor: [15,15] });
-      const m = L.marker([g.lat, g.lng], { icon }).addTo(leafletMap);
-      m.bindPopup(popupGroup(g, status));
-      markers[key] = m;
-      placed++;
-    });
-    const pts = Object.values(markers).map(md => md.getLatLng());
-    if (pts.length) leafletMap.fitBounds(L.latLngBounds(pts).pad(0.12));
-    const noCoord = stations.filter(s => !locIds.has(s.station_id));
-    $("mapNote").innerHTML = `
-      <span class="lg"><span class="dot" style="background:#30d158"></span>有空闲</span>
-      <span class="lg"><span class="dot" style="background:#ff453a"></span>无空闲</span>
-      <span class="lg"><span class="dot" style="background:#8999ac"></span>无数据</span>
-      <span class="lg">数字 = 空闲插座数</span>`;
-    if (!placed) $("mapNote").textContent = "暂无站点位置数据，请运行 export_locations.py 生成坐标表";
-  } catch (e) {
-    toast("地图加载失败: " + e.message);
-  }
-}
-
-function gotoStationFromMap(sid) {
-  const loc = S.locationById[sid];
-  const name = loc ? loc.station_name : ("站点" + sid);
-  setMode("list");
-  S.currentStation = { id: sid, name: name };
-  showView("view-outlets", true);
-  loadOutlets();
-}
-
 /* ---------- 刷新 / 自动 ---------- */
 async function refresh() {
   const btn = $("refreshBtn");
@@ -911,7 +714,6 @@ async function refresh() {
     else if (view === "view-outlets") await loadOutlets();
     else if (view === "view-sessions") await loadSessions();
     else if (view === "view-detail") await loadDetail();
-    else if (view === "view-map") await loadMap();
   } catch (e) {
     toast("刷新失败: " + e.message);
   } finally {
@@ -925,7 +727,7 @@ function toggleAuto() {
   b.classList.toggle("on", S.auto);
   if (S.timer) { clearInterval(S.timer); S.timer = null; }
   if (S.auto) {
-    S.timer = setInterval(() => { const v = currentView(); if (v === "view-stations" || v === "view-outlets" || v === "view-map") refresh(); }, 30000);
+    S.timer = setInterval(() => { const v = currentView(); if (v === "view-stations" || v === "view-outlets") refresh(); }, 30000);
     toast("已开启 30 秒自动刷新");
   }
 }
