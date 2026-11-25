@@ -10,10 +10,11 @@
 | `charger_api.py` | 调「闪开来电」(issks) 接口取站点/插座数据 |
 | [`all.json`](all.json) | 采样清单（`站点名 -> station_id`） |
 | `charge_history.db` | 默认生成的 SQLite 数据库，不提交到 Git |
-| `station_locations.json` | 各站经纬度和地址（由 `/api/locations` 提供，网页不再显示地图） |
+| `station_locations.json` | 各站经纬度和地址（由 `/api/locations` 提供，静态分布图不依赖此表） |
 | `station_overrides.json` | 手动坐标校正（可选；源数据个别站坐标错时用） |
 | `export_locations.py` | 生成 / 刷新 `station_locations.json` |
-| `web/` | 手机网页前端（站点列表、插座和充电历史） |
+| `web/` | 手机网页前端（站点列表、插座、充电历史和静态分布图） |
+| [`web/charger-map.jpg`](web/charger-map.jpg) | 充电桩分布图，由现有 HTTP 服务直接托管 |
 
 ## 采样范围和地点分类
 

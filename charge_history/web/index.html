@@ -63,6 +63,7 @@
     color: var(--text); font-size: 14px; outline: none;
   }
   .search::placeholder { color: var(--muted); }
+  .toolbar .search { min-width: 0; }
   .btn {
     padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);
     background: var(--card-hi); color: var(--text); font-size: 13px; cursor: pointer;
@@ -210,6 +211,12 @@
 
   /* 页脚提示 */
   .updated { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
+  /* 静态地图 */
+  .map-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .map-header .seg { margin: 0; }
+  .map-note { color: var(--muted); margin: 4px 0 10px; font-size: 13px; }
+  .map-image { display: block; width: 100%; height: auto; border-radius: var(--radius); }
+  .map-original { text-decoration: none; }
 </style>
 </head>
 <body>
@@ -224,6 +231,7 @@
     </div>
     <div class="toolbar">
       <input class="search" id="searchInput" placeholder="搜索站点…" aria-label="搜索已选地点的站点" oninput="applyStationFilter()">
+      <button class="btn" id="mapBtn" type="button" onclick="openMap()">地图</button>
       <button class="switch" id="autoBtn" onclick="toggleAuto()">自动刷新</button>
     </div>
   </header>
@@ -252,6 +260,17 @@
     <div class="list station-groups" id="stationList">
       <div class="empty">正在加载站点…</div>
     </div>
+  </section>
+
+  <!-- 静态地图 -->
+  <section id="view-map" style="display:none" aria-labelledby="mapTitle">
+    <div class="map-header">
+      <h2 class="seg" id="mapTitle">充电桩分布图</h2>
+      <a class="btn map-original" id="mapOriginal" href="charger-map.jpg" target="_blank" rel="noopener">查看原图</a>
+    </div>
+    <p class="map-note">图片仅供位置参考，充电口状态以列表为准。</p>
+    <img class="map-image" id="mapImage" alt="电子科技大学清水河校区充电桩分布图"
+      width="4106" height="5000" decoding="async">
   </section>
 
   <!-- 插座列表 -->
@@ -334,10 +353,11 @@ function fmtDur(v) {
 function fmtPower(v) { return v == null ? "-" : v + " W"; }
 
 /* ---------- 视图切换 ---------- */
-const VIEWS = ["view-stations", "view-outlets", "view-sessions", "view-detail"];
+const VIEWS = ["view-stations", "view-outlets", "view-sessions", "view-detail", "view-map"];
 function showView(name, push) {
   VIEWS.forEach(v => $(v).style.display = v === name ? "block" : "none");
   $("searchInput").style.display = name === "view-stations" ? "block" : "none";
+  $("mapBtn").hidden = name !== "view-stations";
   $("backBtn").style.display = push ? "inline-block" : "none";
   $("emptyHint").style.display = "none";
   window.scrollTo(0, 0);
@@ -354,6 +374,14 @@ function nav(view, pushFn) {
 }
 function currentView() {
   return VIEWS.find(v => $(v).style.display !== "none") || "view-stations";
+}
+
+function openMap() {
+  const image = $("mapImage");
+  if (!image.hasAttribute("src") || (image.complete && !image.naturalWidth)) {
+    image.src = $("mapOriginal").href;
+  }
+  nav("view-map");
 }
 
 /* ---------- 健康检查 ---------- */
