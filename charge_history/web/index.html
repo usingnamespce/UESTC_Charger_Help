@@ -159,6 +159,30 @@
     padding: 6px 12px; border-radius: 8px; cursor: pointer; }
   .seg-btn.on { background: var(--blue); color: #fff; font-weight: 600; }
 
+  /* 地点筛选 */
+  .place-picker { margin: 8px 0; }
+  .place-picker > summary {
+    display: flex; align-items: center; justify-content: space-between; min-height: 44px; list-style: none;
+  }
+  .place-picker > summary::-webkit-details-marker { display: none; }
+  .place-picker > summary::after { content: "+"; color: var(--muted); font-size: 18px; }
+  .place-picker[open] > summary::after { content: "−"; }
+  .place-panel {
+    padding: 8px; margin-top: 6px; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .place-tools { display: flex; gap: 8px; margin-bottom: 6px; }
+  .place-tools .search { min-width: 0; }
+  .place-tools button:disabled { color: var(--muted); cursor: default; }
+  .place-options { max-height: min(40vh, 300px); overflow-y: auto; overscroll-behavior: contain; }
+  .place-option {
+    display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 8px;
+    border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; overflow-wrap: anywhere;
+  }
+  .place-option:last-child { border-bottom: 0; }
+  .place-option input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--blue); }
+  .place-message { margin: 8px; font-size: 13px; color: var(--muted); }
+
   /* 列表快速筛选 */
   .filter { display: flex; gap: 6px; margin: 8px 0; }
   .fbtn { border: 1px solid var(--border); background: var(--card-hi); color: var(--muted);
@@ -222,13 +246,24 @@
       </button>
     </div>
     <div class="toolbar" id="listToolbar">
-      <input class="search" id="searchInput" placeholder="搜索站点…" oninput="onSearch(this.value)">
+      <input class="search" id="searchInput" placeholder="搜索站点…" aria-label="搜索已选地点的站点" oninput="applyStationFilter()">
       <button class="switch" id="autoBtn" onclick="toggleAuto()">自动刷新</button>
     </div>
   </header>
 
   <!-- 站点列表 -->
   <section id="view-stations">
+    <details class="place-picker" id="placePicker">
+      <summary class="btn"><span id="placePickerText">选择地点</span></summary>
+      <div class="place-panel">
+        <div class="place-tools">
+          <input class="search" id="placeSearch" type="search" placeholder="搜索地点…" aria-label="搜索地点"
+            autocomplete="off" oninput="renderPlaceOptions()">
+          <button class="btn" id="clearPlacesBtn" type="button" onclick="clearPlaces()" disabled>清空已选</button>
+        </div>
+        <div class="place-options" id="placeOptions" onchange="setPlaceSelected(event.target.value, event.target.checked)"></div>
+      </div>
+    </details>
     <div class="stats" id="statsBar"></div>
     <div class="updated" id="updatedAt"></div>
     <div class="filter" id="stationFilter">
@@ -236,7 +271,9 @@
       <button class="fbtn free" data-f="free" onclick="setStationFilter('free')">空闲 <b id="cnt-free"></b></button>
       <button class="fbtn busy" data-f="busy" onclick="setStationFilter('busy')">充电中 <b id="cnt-busy"></b></button>
     </div>
-    <div class="list station-groups" id="stationList"></div>
+    <div class="list station-groups" id="stationList">
+      <div class="empty">请选择要查看的地点</div>
+    </div>
   </section>
 
   <!-- 插座列表 -->
@@ -272,8 +309,10 @@
 "use strict";
 
 /* ---------- 状态 ---------- */
+const PLACES_STORAGE_KEY = "charger-monitor.selected-places";
 const S = {
-  stations: [],
+  stationGroups: [],
+  selectedPlaces: readSelectedPlaces(),
   outlets: [],
   sessions: [],
   currentStation: null,
@@ -417,13 +456,63 @@ function groupStations(stations) {
       stationNameOrder.compare(a.station_name, b.station_name) || a.station_id - b.station_id)]);
 }
 
-async function loadStations() {
-  const q = $("searchInput").value.trim();
-  const list = await api("/api/stations" + (q ? "?search=" + encodeURIComponent(q) : ""));
-  S.stations = list;
-  renderStats(list, S.health ? S.health.totals : null);
-  updateFilterCounts();
+function readSelectedPlaces() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PLACES_STORAGE_KEY));
+    return new Set(Array.isArray(saved) ? saved.filter(name => typeof name === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function renderPlaceOptions() {
+  const q = $("placeSearch").value.trim().toLowerCase();
+  const names = S.stationGroups.map(([name]) => name).filter(name => name.toLowerCase().includes(q));
+  $("placeOptions").innerHTML = names.map(name => `
+    <label class="place-option">
+      <input type="checkbox" value="${esc(name)}"${S.selectedPlaces.has(name) ? " checked" : ""}>
+      <span>${esc(name)}</span>
+    </label>`).join("") || `<p class="place-message">${q ? "没有匹配的地点" : "暂无地点数据"}</p>`;
+}
+
+function updatePlacePicker() {
+  const count = S.stationGroups.filter(([name]) => S.selectedPlaces.has(name)).length;
+  $("placePickerText").textContent = count ? `选择地点（已选 ${count}）` : "选择地点";
+  $("clearPlacesBtn").disabled = S.selectedPlaces.size === 0;
+}
+
+function saveSelectedPlaces() {
+  try {
+    localStorage.setItem(PLACES_STORAGE_KEY, JSON.stringify([...S.selectedPlaces]));
+  } catch {
+    // 浏览器禁用本地存储时，当前页面仍可使用筛选。
+  }
+  updatePlacePicker();
   applyStationFilter();
+}
+
+function setPlaceSelected(name, checked) {
+  if (checked) S.selectedPlaces.add(name);
+  else S.selectedPlaces.delete(name);
+  saveSelectedPlaces();
+}
+
+function clearPlaces() {
+  S.selectedPlaces.clear();
+  renderPlaceOptions();
+  saveSelectedPlaces();
+}
+
+async function loadStations() {
+  const groups = groupStations(await api("/api/stations"));
+  const namesChanged = groups.length !== S.stationGroups.length ||
+    groups.some(([name], i) => name !== S.stationGroups[i][0]);
+  S.stationGroups = groups;
+  // 定时刷新状态时不替换地点选项，以保留面板的焦点和滚动位置。
+  if (namesChanged || !$("placeOptions").firstElementChild) renderPlaceOptions();
+  updatePlacePicker();
+  applyStationFilter();
+  $("updatedAt").textContent = "数据更新于 " + new Date().toTimeString().slice(0, 8);
 }
 
 function stationPasses(s, f) {
@@ -434,17 +523,20 @@ function stationPasses(s, f) {
   return true;
 }
 
-function updateFilterCounts() {
-  if (!$("cnt-all")) return;
-  $("cnt-all").textContent = S.stations.length;
-  $("cnt-free").textContent = S.stations.filter(s => stationPasses(s, "free")).length;
-  $("cnt-busy").textContent = S.stations.filter(s => stationPasses(s, "busy")).length;
-}
-
 function applyStationFilter() {
-  const f = S.stationFilter;
-  const shown = S.stations.filter(s => stationPasses(s, f));
-  renderStations(shown);
+  const q = $("searchInput").value.trim().toLowerCase();
+  const selected = S.stationGroups.filter(([name]) => S.selectedPlaces.has(name));
+  const matches = selected.map(([name, members]) => [name,
+    members.filter(station => station.station_name.toLowerCase().includes(q))]);
+  const stations = matches.flatMap(([, members]) => members);
+  $("cnt-all").textContent = stations.length;
+  $("cnt-free").textContent = stations.filter(s => stationPasses(s, "free")).length;
+  $("cnt-busy").textContent = stations.filter(s => stationPasses(s, "busy")).length;
+  renderStats(stations);
+
+  const shown = matches.map(([name, members]) => [name,
+    members.filter(s => stationPasses(s, S.stationFilter))]).filter(([, members]) => members.length);
+  renderStations(shown, selected.length > 0);
 }
 
 function setStationFilter(f) {
@@ -466,14 +558,15 @@ function renderStats(stations) {
     <div class="stat free"><div class="n">${free}</div><div class="l">空闲</div></div>
     <div class="stat busy"><div class="n">${busy}</div><div class="l">充电中</div></div>
     <div class="stat broken"><div class="n">${broken}</div><div class="l">故障</div></div>`;
-  const d = new Date();
-  $("updatedAt").textContent = "数据更新于 " + d.toTimeString().slice(0, 8);
 }
 
-function renderStations(list) {
+function renderStations(groups, hasSelection) {
   const box = $("stationList");
-  if (!list.length) { box.innerHTML = '<div class="empty">没有匹配的站点</div>'; return; }
-  box.innerHTML = groupStations(list).map(([name, members]) => `
+  if (!groups.length) {
+    box.innerHTML = `<div class="empty">${hasSelection ? "没有匹配的站点" : "请选择要查看的地点"}</div>`;
+    return;
+  }
+  box.innerHTML = groups.map(([name, members]) => `
     <section class="station-group">
       <h2 class="station-group-title">${esc(name)}</h2>
       <div class="list">${members.map(renderStationCard).join("")}</div>
@@ -799,11 +892,6 @@ function toggleAuto() {
     toast("已开启 30 秒自动刷新");
   }
 }
-function onSearch(q) {
-  clearTimeout(onSearch._h);
-  onSearch._h = setTimeout(loadStations, 250);
-}
-
 /* ---------- 启动 ---------- */
 (async function boot() {
   const ok = await checkHealth();
